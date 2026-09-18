@@ -1,0 +1,100 @@
+name: Publish source tree
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.bootstrap/**'
+      - '.github/workflows/bootstrap-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check bootstrap payload
+        id: check
+        shell: bash
+        run: |
+          if [ -f .bootstrap/source.tgz.b64 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.check.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Go
+        if: steps.check.outputs.run == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Expand source
+        if: steps.check.outputs.run == 'true'
+        shell: bash
+        run: |
+          base64 -d .bootstrap/source.tgz.b64 > /tmp/ffxv-source.tgz
+          tar -xzf /tmp/ffxv-source.tgz -C .
+
+      - name: Generate runtime asset aliases
+        if: steps.check.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p assets
+          cp assets/comrades_header_1240_64.png assets/comrades_header_64.png
+          cp assets/comrades_header_1240_90.png assets/comrades_header_90.png
+          cp assets/comrades_header_1240_90.png assets/comrades_header.png
+          python -m pip install --disable-pip-version-check pillow
+          python - <<'PY'
+          from PIL import Image
+          im = Image.open("assets/app_icon.png").convert("RGBA")
+          im.save(
+              "assets/app_icon.ico",
+              format="ICO",
+              sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)],
+          )
+          PY
+
+      - name: Build ForgeCore.exe
+        if: steps.check.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p Bundled
+          cd core_source
+          GOOS=windows GOARCH=amd64 go build -o ../Bundled/ForgeCore.exe .
+
+      - name: Validate
+        if: steps.check.outputs.run == 'true'
+        shell: bash
+        run: |
+          python -m py_compile app.py forge_core.py FFXV_COMRADES_Save_Editor.pyw
+          cd core_source
+          go test ./...
+          go vet ./...
+
+      - name: Commit published source
+        if: steps.check.outputs.run == 'true'
+        shell: bash
+        run: |
+          rm -rf .bootstrap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git commit -m "Publish FFXV COMRADES Save Editor v1.8.3 source"
+          git push
