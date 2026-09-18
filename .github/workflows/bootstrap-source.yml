@@ -1,4 +1,4 @@
-name: Publish source tree
+name: Publish source and release
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
         id: check
         shell: bash
         run: |
-          if [ -f .bootstrap/source.tgz.b64 ]; then
+          if [ -f .bootstrap/source.tar.xz ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -45,8 +45,7 @@ jobs:
         if: steps.check.outputs.run == 'true'
         shell: bash
         run: |
-          base64 -d .bootstrap/source.tgz.b64 > /tmp/ffxv-source.tgz
-          tar -xzf /tmp/ffxv-source.tgz -C .
+          tar -xJf .bootstrap/source.tar.xz -C .
 
       - name: Generate runtime asset aliases
         if: steps.check.outputs.run == 'true'
@@ -94,7 +93,35 @@ jobs:
           git add -A
           if git diff --cached --quiet; then
             echo "Nothing to commit."
-            exit 0
+          else
+            git commit -m "Publish FFXV COMRADES Save Editor v1.8.3 source"
+            git push
           fi
-          git commit -m "Publish FFXV COMRADES Save Editor v1.8.3 source"
-          git push
+
+      - name: Build release package
+        if: steps.check.outputs.run == 'true'
+        shell: bash
+        run: |
+          VERSION="1.8.3"
+          PACKAGE="FFXV_COMRADES_Save_Editor_v${VERSION}_SOURCE.zip"
+          rm -f "$PACKAGE" "$PACKAGE.sha256.txt"
+          zip -r "$PACKAGE" .             -x '.git/*'             -x '.github/*'             -x "$PACKAGE"             -x "$PACKAGE.sha256.txt"
+          sha256sum "$PACKAGE" > "$PACKAGE.sha256.txt"
+          echo "PACKAGE=$PACKAGE" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub Release
+        if: steps.check.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="v1.8.3"
+          TARGET="$(git rev-parse HEAD)"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG"               --target "$TARGET"               --title "FFXV COMRADES Save Editor v1.8.3"               --notes "FFXV COMRADES Save Editor v1.8.3
+
+Adds verified editing for existing registered Chocobos, including level, level cap, limit max level, stamina, jump, top speed and injury. Includes MAX ALL. The Set Requirement preset is removed. This release does not add or register new Chocobos.
+
+Also includes the v1.7.0 reliability and UI fixes, verified weapon ability slot mapping, signed resistance preservation, safer exports, and the bundled ForgeCore backend."
+          fi
+          gh release upload "$TAG" "$PACKAGE" "$PACKAGE.sha256.txt" --clobber
