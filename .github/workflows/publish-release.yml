@@ -1,0 +1,36 @@
+name: Publish v1.8.3 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/publish-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          if gh release view v1.8.3 --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release v1.8.3 already exists."
+          else
+            gh release create v1.8.3 --repo "$GH_REPO" --target "$TARGET_SHA" --title "FFXV COMRADES Save Editor v1.8.3" --notes "FFXV COMRADES Save Editor v1.8.3
+
+- Chocobo stats editor for existing registered Chocobos
+- Edit level, level cap, limit max level, stamina, jump, top speed, skill level and injury
+- MAX ALL preset
+- No Add Chocobo function
+- Set Requirement preset removed
+- Includes v1.7.0 reliability and UI fixes
+- Includes verified weapon ability slot mapping and signed resistance preservation"
+          fi
