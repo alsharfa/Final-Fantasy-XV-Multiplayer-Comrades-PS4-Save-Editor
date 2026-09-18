@@ -17,20 +17,17 @@ jobs:
     steps:
       - name: Create GitHub release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TARGET_SHA: ${{ github.sha }}
+        shell: bash
         run: |
           if gh release view v1.8.3 --repo "$GH_REPO" >/dev/null 2>&1; then
             echo "Release v1.8.3 already exists."
-          else
-            gh release create v1.8.3 --repo "$GH_REPO" --target "$TARGET_SHA" --title "FFXV COMRADES Save Editor v1.8.3" --notes "FFXV COMRADES Save Editor v1.8.3
-
-- Chocobo stats editor for existing registered Chocobos
-- Edit level, level cap, limit max level, stamina, jump, top speed, skill level and injury
-- MAX ALL preset
-- No Add Chocobo function
-- Set Requirement preset removed
-- Includes v1.7.0 reliability and UI fixes
-- Includes verified weapon ability slot mapping and signed resistance preservation"
+            exit 0
           fi
+          gh release create v1.8.3 \
+            --repo "$GH_REPO" \
+            --target "$TARGET_SHA" \
+            --title "FFXV COMRADES Save Editor v1.8.3" \
+            --notes "Chocobo stats editor for existing registered Chocobos; editable level, caps, stamina, jump, top speed, skill level and injury; MAX ALL preset; no Add Chocobo function; Set Requirement preset removed; includes v1.7.0 reliability/UI fixes and verified weapon ability mapping."
